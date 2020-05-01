@@ -1,0 +1,66 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.31.2.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: 4404fdb0aa427b9816cc699d67ecae5ffb6d3885a8d13dc9024a10ddd281762e
+
+name:           diplomacy
+version:        0.1.0.0
+description:    Please see the README on GitHub at <https://github.com/githubuser/diplomacy#readme>
+homepage:       https://github.com/githubuser/diplomacy#readme
+bug-reports:    https://github.com/githubuser/diplomacy/issues
+author:         Author name here
+maintainer:     example@example.com
+copyright:      2020 Author name here
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+    ChangeLog.md
+
+source-repository head
+  type: git
+  location: https://github.com/githubuser/diplomacy
+
+library
+  exposed-modules:
+      Lib
+      Lib2
+  other-modules:
+      Paths_diplomacy
+  hs-source-dirs:
+      src
+  build-depends:
+      Unique
+    , algebraic-graphs
+    , base >=4.7 && <5
+    , containers
+  default-language: Haskell2010
+
+executable diplomacy-exe
+  main-is: Main.hs
+  other-modules:
+      Paths_diplomacy
+  hs-source-dirs:
+      app
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , diplomacy
+  default-language: Haskell2010
+
+test-suite diplomacy-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      Paths_diplomacy
+  hs-source-dirs:
+      test
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , diplomacy
+  default-language: Haskell2010
