@@ -6,9 +6,10 @@ import qualified Data.Map as Map -- .Strict as Map
 import qualified Algebra.Graph.Undirected as Undirected
 import qualified Algebra.Graph as Directed
 import qualified Data.Set as Set
-import Data.List (inits)
+import Data.List (inits, sort, group)
 import Data.List.Unique (allUnique, repeatedBy, repeated)
 import Data.Bifunctor (bimap)
+import Data.Monoid as Monoid --(getSum, Sum)
 --import qualified Algebra.Graph.Labelled as Labelled
 
 someFunc :: IO ()
@@ -21,19 +22,51 @@ graph = Undirected.edges $
     [(A,B),(B,C),(C,D),(D,A),(E,F),(F,G),(G,E),(H,I),(I,J)]
     ++ zip [(A)..] [(A)..] -- self edges
 
+graphDiagram12 :: Undirected.Graph Node
+graphDiagram12 = Undirected.edges $ 
+    [(H,A),(A,B),(H,I),(H,C),(A,C),(A,D),(B,D),(B,E),(I,C),(C,D),(D,E),(C,F),(C,G),(D,G),(F,G)]
+    ++ zip [(A)..] [(A)..] -- self edges
+
 
 graphMap :: Map.Map Node Bool
 graphMap = Map.fromList [(A, True), (B, True), (C, True), (D, False)
                         ,(E, True), (F, True), (G, True), (H, True), (I, True), (J, True)]
 
-data Move = Hold | Move | Support | Convoy deriving (Eq, Ord)
+graphMapJI :: Map.Map Node (Maybe Int)
+graphMapJI = Map.fromList [(A, Just 1), (B, Just 2), (C, Just 3), (D, Nothing), (E, Just 4)
+                          ,(F, Just 5), (G, Just 6), (H, Just 7), (I, Just 8), (J, Just 9)
+                          ,(K, Just 10)]
+
+graphMapDiagram12 :: Map.Map Node (Maybe Int)
+graphMapDiagram12 = Map.fromList [(A,Just 1),(B,Just 2),(C,Just 3),(D, Nothing),(E,Just 4),(F,Just 5)
+                                 ,(G, Just 6),(H, Nothing),(I, Nothing)]
+
+-- a self move is a hold (should it always??)
+data Move = Move | Support deriving (Eq, Ord, Show) --Hold | Move | Support | Convoy deriving (Eq, Ord)
 
 -- it might be best to used a labeled edge graph
 -- use adjacency map
+-- I don't think 
 moves :: Map.Map Node Node
 moves = Map.fromList [(A,B),(B,C),(C,D),(E,F),(F,G),(G,E),(H,I),(I,J),(J,I),(K,K)]
+moves2 = Map.fromList [(A,B),(B,C),(D,E),(E,C),(C,F),(F,G),(H,I),(I,J),(J,K),(K,H)]
 
-moves2 = Map.fromList [(A,B),(C,B),(D,D),(E,F),(F,G),(G,E),(H,I),(I,J),(J,I),(K,K)]
+--moves with support
+tripleToNestedTuple :: (a,b,c) -> (a,(b,c))
+tripleToNestedTuple (a,b,c) = (a,(b,c))
+
+movesS = Map.fromList $ fmap tripleToNestedTuple 
+    [(A,B,Move), (B,C,Move), (C,D,Move), (E,F,Move), (F,G,Move), (G,E,Move), (H,I,Move), (I,J,Move)
+    ,(J,I,Move), (K,K,Move)]
+                
+movesDiagram12 = Map.fromList $ fmap tripleToNestedTuple 
+    [(A,B,Move),(B,E,Support),(C,D,Move),(E,D,Move),(G,C,Move),(F,G,Support)]
+   --(A,C,Support)
+
+graphMapJI2 :: Map.Map Node (Maybe Int)
+graphMapJI2 = Map.fromList [(A, Just 1), (B, Just 2), (C, Just 3), (D, Just 4), (E, Just 5)
+                           ,(F, Just 6), (G, Nothing), (H, Just 7), (I, Just 8), (J, Just 9)
+                           ,(K, Just 10)]
 
 -- moves2 = Directed.edges [(B,C)]
 -- moves3 = Directed.edges [(C,D)]
@@ -97,7 +130,6 @@ findTerminus' moves node = inits $ iterate (goToTerminus moves) node
   where goToTerminus moves node = case Map.lookup node moves of
                                     Nothing -> node
                                     Just next -> next
-
 --theList = take 10 $ fmap Set.fromList $ findTerminus' moves B
 --theList' node = takeWhile allUnique $ findTerminus' moves node
 
@@ -121,39 +153,57 @@ reverseMap moves = Directed.transpose $ Directed.edges $ Map.toList moves
 -- somehow we need to make a Map.Map Node Bool (I think)
 -- we can assume all node with outdegree = 0 are False, rest are True
 -- gaurenteed by the turn validator
-nextTurn :: Map.Map Node Node -> Map.Map Node Bool
-nextTurn moves = mconcat $ fmap getMap $ fmap Set.toList $ Set.toList $ allTerminuses moves 
+--nextTurn moves state = mconcat $ fmap getMap $ fmap Set.toList $ Set.toList $ allTerminuses moves 
+--nextTurn :: Map.Map Node Node -> Map.Map Node (Maybe Int) -> Map.Map Node (Maybe Int)
+--mconcat $ fmap getMap $ fmap Set.toList $ Set.toList $ allTerminuses moves 
+nextTurn orders state = (supportPowerLevel, movesWithSum) --(moves,supports) --revSupports --mconcat $ fmap getMap $ fmap Set.toList $ Set.toList $ allTerminuses moves 
     where
-        terminalNodes = mconcat $ Set.toList $ allTerminuses moves
-        revGraph = reverseMap moves
-        revDirection = Map.fromListWith (<>) $ fmap (bimap id (: [])) $ filter (\(_,b) -> Set.notMember b terminalNodes) $ Directed.edgeList $ reverseMap moves
-        revDirection' = Map.fromList $ Directed.adjacencyList $ revGraph
-        outDegree map node = length $ case map Map.!? node of
-                                        Nothing -> []
-                                        Just ns -> ns
-        nextTurnGo ableToMove node = case moves Map.!? node of
-                                        Nothing -> if ableToMove then Map.singleton node False else Map.singleton node True
-                                        Just n -> Map.singleton node True <> nextTurnGo ableToMove (moves Map.! node)
-        nextTurnGo' ableToMove node = case revDirection' Map.! node of
-                                        [] -> Map.singleton node (not ableToMove)
-                                        [n] -> Map.singleton node ableToMove <> nextTurnGo' ableToMove n
-                                        ns -> Map.singleton node True <> (mconcat $ fmap (nextTurnGo' False) ns)
-        outOfCycleNodes ns = mconcat $ fmap (lookup revDirection) ns
-            where lookup map key = case map Map.!? key of
-                                        Nothing -> []
-                                        Just n -> n 
+        moves = fmap fst $ Map.filter ((==) Move . snd) orders -- get all move orders
+        supports = fmap fst $ Map.filter ((==) Support .snd) orders -- get all support orders -- might not need
+        revMoves = Map.fromList $ Directed.adjacencyList $ reverseMap moves
+        revSupports = Map.fromList $ Directed.adjacencyList $ reverseMap supports
+        movesNotSupported k a = case moves Map.!? (moves Map.! a) of -- delete the move which the support is helping to attack
+                                  Nothing -> moves
+                                  Just n -> if n == k 
+                                            then Map.delete (moves Map.! a) moves
+                                            else moves
+        nonCutSupport = Map.filterWithKey (\k a -> not (k `elem` Map.elems (movesNotSupported k a))) supports -- delete those supports which are cut
+        supportPowerLevel = fmap (\xs -> (head xs, Monoid.Sum (length xs))) $ group $ sort $ Map.elems nonCutSupport
+        movesWithSum = fmap (\a -> (a, Monoid.Sum 0)) moves
+        movesWithSupport = Map.merge Map.preserveMissing Map.dropMissing (Map.zipWithMatched zipValues) movesWithSum supportPowerLevel
+            where zipValues k (n, s0) sn = (n, s0 <> sn)
+        --movesWithSupport = --todo apply revSupports to revMoves, yeilding revMoves with a "power level"
+        --    where nonCutSupport = filter ()
+        terminalNodes = mconcat $ Set.toList $ allTerminuses moves -- good
+        revGraph = reverseMap moves -- good
+        revDirection = Map.fromListWith (<>) $ fmap (bimap id (: [])) $ filter (\(_,b) -> Set.notMember b terminalNodes) $ Directed.edgeList $ reverseMap moves -- good
+        revDirection' = Map.fromList $ Directed.adjacencyList $ revGraph -- good
+        outDegree map node = length $ case map Map.!? node of -- good
+                                        Nothing -> []         -- good
+                                        Just ns -> ns         -- good
+        nextTurnGo' ableToMove node = case revDirection' Map.! node of -- change
+                                        [] -> if ableToMove
+                                              then Map.singleton node Nothing
+                                              else Map.singleton node (state Map.! node) -- (not ableToMove) -- change -- doesn't reverse anywhere
+                                        [n] -> (if ableToMove
+                                                then Map.singleton node (state Map.! n) -- it can move
+                                                else Map.singleton node (state Map.! node))
+                                               <> nextTurnGo' ableToMove n -- change -- can over a linear
+                                        ns -> (if ableToMove
+                                               then Map.singleton node Nothing
+                                               else Map.singleton node (state Map.! node))
+                                              <> (mconcat $ fmap (nextTurnGo' False) ns)
+                                        --Map.singleton node ableToMove <> (mconcat $ fmap (nextTurnGo' False) ns) -- change -- split, cant move
+        outOfCycleNodes ns = mconcat $ fmap (lookup revDirection) ns -- good
+            where lookup map key = case map Map.!? key of -- good
+                                        Nothing -> []     -- good
+                                        Just n -> n       -- good
         getMap cycleOrSin
-            | Just (head cycleOrSin) == moves Map.!? (head cycleOrSin) = Map.singleton (head cycleOrSin) True
-            | length cycleOrSin == 1 = nextTurnGo' True $ head cycleOrSin
-            | all (\n -> outDegree revDirection' n == 1) cycleOrSin = Map.fromList $ fmap (flip (,) True) cycleOrSin
-            | otherwise = (mconcat $ fmap (nextTurnGo' False) $ outOfCycleNodes cycleOrSin) <> (Map.fromList $ fmap (flip (,) True) cycleOrSin)
-        --                    if length cycleOrSin == 1
-        --                    then nextTurnGo True $ head cycleOrSin
-        --                    else if 
-        --nextTurnGo ableToMove node = case ableToMove of
-        --                                False -> Map.singleton node True <> nextTurnGo False (moves Map.! node)
-        --                                True -> Map.singleton node True <> nextTurnGo True (moves Map.! node)
-                                        -- TODO: make singleton maps and <> together
+            | Just (head cycleOrSin) == moves Map.!? (head cycleOrSin) = Map.singleton (head cycleOrSin) (state Map.! (head cycleOrSin)) -- case where A<->A -- changed
+            | length cycleOrSin == 1 = nextTurnGo' True $ head cycleOrSin -- case where A->B->C -- change
+            | all (\n -> outDegree revDirection' n == 1) cycleOrSin && length cycleOrSin /= 2 = Map.fromList $ fmap (\n -> (n, state Map.! (head (revDirection' Map.! n)))) cycleOrSin -- case where A->B->C->A -- changed
+            | otherwise = (mconcat $ fmap (nextTurnGo' False) $ outOfCycleNodes cycleOrSin) <> (Map.fromList (fmap (\n -> (n, state Map.! n)) cycleOrSin)) -- case where A->B<->C -- change
 
 --nextGraph :: Map.Map Node Bool -> Map.Map Node Bool -> Map.Map Node Bool
-nextGraph moves graph = nextTurn moves <> graph
+--nextGraph :: Map.Map Node Node -> Map.Map Node (Maybe Int) -> Map.Map Node (Maybe Int) -> Map.Map Node (Maybe Int)
+--nextGraph moves state graph = nextTurn moves state <> graph
