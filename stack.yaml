@@ -41,7 +41,6 @@ packages:
 #
 extra-deps:
 - Unique-0.4.7.7@sha256:2269d3528271e25d34542e7c24a4e541e27ec33460e1ea00845da95b82eec6fa,2777
-- containers-0.6.2.1
 
 # Override default flag values for local packages and extra-deps
 # flags: {}

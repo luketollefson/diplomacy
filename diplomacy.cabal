@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 4404fdb0aa427b9816cc699d67ecae5ffb6d3885a8d13dc9024a10ddd281762e
+-- hash: 746f554c7e73ca42e19521084fb7b095a3e96f9987fab0508177600248be2383
 
 name:           diplomacy
 version:        0.1.0.0
@@ -28,7 +28,6 @@ source-repository head
 library
   exposed-modules:
       Lib
-      Lib2
   other-modules:
       Paths_diplomacy
   hs-source-dirs:

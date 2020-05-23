@@ -6,10 +6,11 @@ import qualified Data.Map as Map -- .Strict as Map
 import qualified Algebra.Graph.Undirected as Undirected
 import qualified Algebra.Graph as Directed
 import qualified Data.Set as Set
-import Data.List (inits, sort, group)
+import Data.List (inits, sort, group, delete)
 import Data.List.Unique (allUnique, repeatedBy, repeated)
 import Data.Bifunctor (bimap)
 import Data.Monoid as Monoid --(getSum, Sum)
+import Data.Map.Merge.Lazy as Merge
 --import qualified Algebra.Graph.Labelled as Labelled
 
 someFunc :: IO ()
@@ -60,8 +61,7 @@ movesS = Map.fromList $ fmap tripleToNestedTuple
     ,(J,I,Move), (K,K,Move)]
                 
 movesDiagram12 = Map.fromList $ fmap tripleToNestedTuple 
-    [(A,B,Move),(B,E,Support),(C,D,Move),(E,D,Move),(G,C,Move),(F,G,Support)]
-   --(A,C,Support)
+    [(A,C,Support),(B,E,Support),(C,D,Move),(E,D,Move),(G,C,Move),(F,G,Support)]
 
 graphMapJI2 :: Map.Map Node (Maybe Int)
 graphMapJI2 = Map.fromList [(A, Just 1), (B, Just 2), (C, Just 3), (D, Just 4), (E, Just 5)
@@ -156,8 +156,10 @@ reverseMap moves = Directed.transpose $ Directed.edges $ Map.toList moves
 --nextTurn moves state = mconcat $ fmap getMap $ fmap Set.toList $ Set.toList $ allTerminuses moves 
 --nextTurn :: Map.Map Node Node -> Map.Map Node (Maybe Int) -> Map.Map Node (Maybe Int)
 --mconcat $ fmap getMap $ fmap Set.toList $ Set.toList $ allTerminuses moves 
-nextTurn orders state = (supportPowerLevel, movesWithSum) --(moves,supports) --revSupports --mconcat $ fmap getMap $ fmap Set.toList $ Set.toList $ allTerminuses moves 
+-- TODO make allTerminuses work on orders
+nextTurn orders state = mconcat $ fmap getMap $ fmap Set.toList $ Set.toList $ allTerminuses ordersWOLabels2 
     where
+        ordersWOLabels = fmap fst orders
         moves = fmap fst $ Map.filter ((==) Move . snd) orders -- get all move orders
         supports = fmap fst $ Map.filter ((==) Support .snd) orders -- get all support orders -- might not need
         revMoves = Map.fromList $ Directed.adjacencyList $ reverseMap moves
@@ -168,42 +170,72 @@ nextTurn orders state = (supportPowerLevel, movesWithSum) --(moves,supports) --r
                                             then Map.delete (moves Map.! a) moves
                                             else moves
         nonCutSupport = Map.filterWithKey (\k a -> not (k `elem` Map.elems (movesNotSupported k a))) supports -- delete those supports which are cut
-        supportPowerLevel = fmap (\xs -> (head xs, Monoid.Sum (length xs))) $ group $ sort $ Map.elems nonCutSupport
+        supportPowerLevel = Map.fromList $ fmap (\xs -> (head xs, Monoid.Sum (length xs))) $ group $ sort $ Map.elems nonCutSupport
         movesWithSum = fmap (\a -> (a, Monoid.Sum 0)) moves
-        movesWithSupport = Map.merge Map.preserveMissing Map.dropMissing (Map.zipWithMatched zipValues) movesWithSum supportPowerLevel
-            where zipValues k (n, s0) sn = (n, s0 <> sn)
-        --movesWithSupport = --todo apply revSupports to revMoves, yeilding revMoves with a "power level"
-        --    where nonCutSupport = filter ()
+        ordersWithSum = fmap (\a -> (a, Monoid.Sum 0)) orders
+        movesWithSupport = Merge.merge Merge.preserveMissing Merge.dropMissing (Merge.zipWithMatched zipValues) movesWithSum supportPowerLevel
+            where zipValues k (n, s0) sn = (n, s0 <> sn) -- have the power level for each move
+        ordersWithSupport = Merge.merge Merge.preserveMissing Merge.dropMissing (Merge.zipWithMatched zipValues) ordersWithSum supportPowerLevel
+            where zipValues k (n, s0) sn = (n, s0 <> sn) -- have the power level for each move
+        -- movesSupportPower will be used to decide who wins standoffs
+        movesSupportPower = fmap (\(n, s) -> getSum s) movesWithSupport -- make it the final thing
+        ordersSupportPower = fmap (\(n, s) -> getSum s) ordersWithSupport -- make it the final thing, orders have all the power level, hence its easier to use
         terminalNodes = mconcat $ Set.toList $ allTerminuses moves -- good
         revGraph = reverseMap moves -- good
         revDirection = Map.fromListWith (<>) $ fmap (bimap id (: [])) $ filter (\(_,b) -> Set.notMember b terminalNodes) $ Directed.edgeList $ reverseMap moves -- good
         revDirection' = Map.fromList $ Directed.adjacencyList $ revGraph -- good
+        -- this terminus calculation should consider supports as self move
+        ordersWOLabels2 = Map.mapWithKey (\n (n', ot) -> if ot == Support then n else n') orders
+        revGraph2 = reverseMap ordersWOLabels2 -- good
+        revDirection2 = Map.fromListWith (<>) $ fmap (bimap id (: [])) $ filter (\(_,b) -> Set.notMember b terminalNodes) $ Directed.edgeList $ reverseMap ordersWOLabels2 -- good
+        revDirection2' = Map.fromList $ Directed.adjacencyList $ revGraph2 -- good
         outDegree map node = length $ case map Map.!? node of -- good
                                         Nothing -> []         -- good
                                         Just ns -> ns         -- good
-        nextTurnGo' ableToMove node = case revDirection' Map.! node of -- change
+        -- nextTurnGo' is where most of the logic to handle power levels will probably be
+        -- Someone disloged units will need to be passed up, right now they will be deleted
+        nextTurnGo' ableToMove node = case revDirection2' Map.! node of -- change
+                                        -- null case is fine, it should be able to more
                                         [] -> if ableToMove
                                               then Map.singleton node Nothing
                                               else Map.singleton node (state Map.! node) -- (not ableToMove) -- change -- doesn't reverse anywhere
-                                        [n] -> (if ableToMove
-                                                then Map.singleton node (state Map.! n) -- it can move
-                                                else Map.singleton node (state Map.! node))
-                                               <> nextTurnGo' ableToMove n -- change -- can over a linear
-                                        ns -> (if ableToMove
-                                               then Map.singleton node Nothing
-                                               else Map.singleton node (state Map.! node))
-                                              <> (mconcat $ fmap (nextTurnGo' False) ns)
-                                        --Map.singleton node ableToMove <> (mconcat $ fmap (nextTurnGo' False) ns) -- change -- split, cant move
+                                        -- singleton case should be able to move if it can move, but maybe not, it will disloge a non movable one
+                                        [n] -> if ableToMove
+                                               then Map.singleton node (state Map.! n) <> nextTurnGo' ableToMove n -- it can stictly move
+                                               else (if ordersSupportPower Map.! n >= 1
+                                                     then Map.singleton node (state Map.! n) <> nextTurnGo' True n -- if the next power level is higher, then it can mve
+                                                     -- CAUSES DISLODGEMENT
+                                                     else Map.singleton node (state Map.! node) <> nextTurnGo' ableToMove n) -- it cant move & it's power level is <=
+                                               -- <> nextTurnGo' ableToMove n -- change -- can over a linear
+                                        -- most complicated case (maybe), if all have same powerlevel, standoff, otherwise the highest wins, and ones behind the highest can move
+                                        ns -> case maxNode ns of
+                                                -- CONDIONALLY CAUSES DISLODGEMENT
+                                                Just n -> Map.singleton node (state Map.! n) <> nextTurnGo' True n <> (mconcat $ fmap (nextTurnGo' False) (delete n ns))
+                                                Nothing -> if ableToMove -- standoff with all ns
+                                                           then Map.singleton node Nothing <> (mconcat $ fmap (nextTurnGo' False) ns)
+                                                           else Map.singleton node (state Map.! node) <> (mconcat $ fmap (nextTurnGo' False) ns)
+
+        maxNode ns = if length nodesWithMax == 1 then Just (head ns) else Nothing
+            where
+                nodesWithPower = Map.restrictKeys ordersWithSupport $ Set.fromList ns
+                maxNumber = maximum (Map.elems nodesWithPower)
+                nodesWithMax = filter (\(n,i) -> i == maxNumber) (Map.toList nodesWithPower)
         outOfCycleNodes ns = mconcat $ fmap (lookup revDirection) ns -- good
             where lookup map key = case map Map.!? key of -- good
                                         Nothing -> []     -- good
                                         Just n -> n       -- good
+        outOfCycleNodes2 ns = mconcat $ fmap (lookup revDirection2) ns -- good
+            where lookup map key = case map Map.!? key of -- good
+                                        Nothing -> []     -- good
+                                        Just n -> n       -- good
         getMap cycleOrSin
-            | Just (head cycleOrSin) == moves Map.!? (head cycleOrSin) = Map.singleton (head cycleOrSin) (state Map.! (head cycleOrSin)) -- case where A<->A -- changed
+            -- self loop case
+            | Just (head cycleOrSin) == ordersWOLabels2 Map.!? (head cycleOrSin) = Map.singleton (head cycleOrSin) (state Map.! (head cycleOrSin)) -- case where A<->A -- changed -- self loop
+            -- a linear case A->B->C->...
             | length cycleOrSin == 1 = nextTurnGo' True $ head cycleOrSin -- case where A->B->C -- change
-            | all (\n -> outDegree revDirection' n == 1) cycleOrSin && length cycleOrSin /= 2 = Map.fromList $ fmap (\n -> (n, state Map.! (head (revDirection' Map.! n)))) cycleOrSin -- case where A->B->C->A -- changed
-            | otherwise = (mconcat $ fmap (nextTurnGo' False) $ outOfCycleNodes cycleOrSin) <> (Map.fromList (fmap (\n -> (n, state Map.! n)) cycleOrSin)) -- case where A->B<->C -- change
+            -- A cycle case A->B->C->A where all can move
+            | all (\n -> outDegree revDirection2' n == 1) cycleOrSin && length cycleOrSin /= 2 = Map.fromList $ fmap (\n -> (n, state Map.! (head (revDirection2' Map.! n)))) cycleOrSin -- case where A->B->C->A -- changed
+            -- A cycle case, but where the cicle cant move, eg A->B<->C
+            | otherwise = (mconcat $ fmap (nextTurnGo' False) $ outOfCycleNodes2 cycleOrSin) <> (Map.fromList (fmap (\n -> (n, state Map.! n)) cycleOrSin)) -- case where A->B<->C -- change
 
---nextGraph :: Map.Map Node Bool -> Map.Map Node Bool -> Map.Map Node Bool
---nextGraph :: Map.Map Node Node -> Map.Map Node (Maybe Int) -> Map.Map Node (Maybe Int) -> Map.Map Node (Maybe Int)
---nextGraph moves state graph = nextTurn moves state <> graph
+--
