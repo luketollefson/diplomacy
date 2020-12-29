@@ -50,3 +50,6 @@ tests:
     - -with-rtsopts=-N
     dependencies:
     - diplomacy
+    - hspec
+    - containers
+    - algebraic-graphs

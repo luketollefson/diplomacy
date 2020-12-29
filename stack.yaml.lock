@@ -5,12 +5,12 @@
 
 packages:
 - completed:
-    hackage: Unique-0.4.7.7@sha256:2269d3528271e25d34542e7c24a4e541e27ec33460e1ea00845da95b82eec6fa,2777
+    hackage: Unique-0.4.7.8@sha256:9661f45aa31dde119a2114566166ea38b011a45653337045ee4ced75636533c0,2067
     pantry-tree:
       size: 1366
-      sha256: 65b9779a0d9502efffea5c93c44d260edc97f8efeaa21e6a302e0fc94f4ff5c7
+      sha256: ad77421b187b6b70b073603dca9e63869893d5e6376714f448e56b7326235f40
   original:
-    hackage: Unique-0.4.7.7@sha256:2269d3528271e25d34542e7c24a4e541e27ec33460e1ea00845da95b82eec6fa,2777
+    hackage: Unique-0.4.7.8
 snapshots:
 - completed:
     size: 492027
