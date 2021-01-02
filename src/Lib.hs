@@ -67,9 +67,29 @@ type DislogedOrders = [DislogedOrder]
 data AdjustUnit = Loose Province | Build Unit Province
 type AdjustUnits = [AdjustUnit]
 
+data GameAction = Orders | DislogedOrders | AdjustUnits
 
+-- The state transitions are following
+{-
+1Spring -2Orders-> 3Spring -4Retreat&Disband-> 5Fall -6Orders-> 7Fall -8Retreat&Disband-> 9Fall -10GainOrLoose-> (repeat)
 
+1 : SpringState
+3 : SpringDislogedState
+5 : FallState
+7 : FallDislogedState
+9 : FallAdjustState -- same as a regular state?
 
+2 : StateToDisloged
+4 : DislogedToState
+6 : StateToDisloged
+8 : DislogedToState(Adjust)
+10 : AdjustState
+-}
+
+turn :: GameState -> GameAction -> GameState
+turn (OrderPhase (Fall year) supplies units) (orders) = undefined
+turn (OrderPhase (Spring year) supplies units) (orders) = undefined
+turn (DislodgedPhase date supplies unites dislogedUnits) (dislogedOrders) = undefined
 
 
 
@@ -90,3 +110,5 @@ findCycles m ns = Set.fromList $ map (findCycle m) ns
 movesDiagram12 :: Map.Map Province Province
 movesDiagram12 = Map.fromList [(A,C),(B,E),(C,D),(E,D),(G,C),(F,G)]
 
+-- >>> 7 * 93
+-- 651
