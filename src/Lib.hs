@@ -38,24 +38,35 @@ import Data.Maybe
 -- STRICTLY UNCHANGING BOARD RELATED (Should we no use record syntax?)
 data Province = A | B | C | D | E | F | G deriving (Eq, Ord, Enum, Show)
 type BoardGraph = Undirected.Graph Province
-data ProvinceType = Inland | Water | Coastal -- how do I handle provinces with two coasts
+data Country = England | Germany | Russia | Turkey | Italy | France | Austria | CivilDisorder deriving (Eq, Ord, Enum, Show)
+data ProvinceType = Inland | Water | Coastal deriving (Eq, Ord, Enum, Show) -- how do I handle provinces with two coasts
 type Supply = Bool
-type BoardData = Map.Map Province (ProvinceType, Supply) -- The Bool represents supply center
-data Coast = Coast1 | Coast2
-type CoastData = Map.Map Province (Map.Map Coast [Province]) -- Adjacency map for coasts?
-data Board = Board BoardGraph BoardData CoastData
+data Coast = Coast1 | Coast2 deriving (Eq, Ord, Enum, Show)
+type Coasts = Map.Map Coast [Province] -- is there a better abstraction?
+data ProvinceData = ProvinceData {
+        provinceType :: ProvinceType
+      , supply       :: Supply
+      , homeCountry  :: Maybe Country -- country that the province is home of
+      , coasts       :: Coasts -- particular adjacency of the coasts
+    } deriving (Eq, Show)
+type BoardData = Map.Map Province ProvinceData
+data Board = Board BoardGraph BoardData deriving (Eq, Show)
 
 -- STATE DATA
-data Country = England | Germany | Russia | Turkey | Italy | France | Austria | CivilDisorder deriving (Eq, Ord, Enum, Show)
-type Supplies = Map.Map Province Country
-data Unit = Army | Fleet deriving (Eq, Ord, Enum, Show)
-type Units = Map.Map Province (Unit, Country, Maybe Coast)
-type DislodgedUnits = Map.Map Province (Unit, Country, Maybe Coast)
+data UnitType = Army | Fleet deriving (Eq, Ord, Enum, Show)
+data UnitData = UnitData {
+        unitType :: UnitType
+      , country :: Country
+      , coast :: Maybe Coast
+    } deriving (Eq, Show)
+type Units = Map.Map Province UnitData
+type DislodgedUnits = Units
 data Date = Spring Int | Fall Int  deriving (Eq, Ord, Show)
-data GameState = OrderPhase Date Supplies Units | DislodgedPhase Date Supplies Units DislodgedUnits
+type Supplies = Map.Map Province Country
+data GameState = GameState Date Supplies Units deriving (Eq, Show)
+data DislogedState = DislogedState Date Supplies Units DislodgedUnits deriving (Eq, Show)
 
--- ACTIONS ON THE STATE (ORDERS, RETREAT/DISBAND, AND ADJUST)
--- ORDERS FOR OrderPhase
+-- ACTIONS ON THE STATE (ORDERS, RETREAT/DISBAND, AND ADJUST), ORDERS FOR OrderPhase
 data Order = Hold Province | Move Province Province | Support Province Province Province | Convoy Province Province Province deriving (Eq, Ord, Show)
 type Orders = [Order]
 
@@ -64,10 +75,52 @@ data DislogedOrder = Disband Province | Retreat Province Province
 type DislogedOrders = [DislogedOrder]
 
 -- ADJUST UNITS (DISBAND AND BUILD) DONE AFTER FALL TURN DislodgedPhase
-data AdjustUnit = Loose Province | Build Unit Province
+data AdjustUnit = Loose Province | Build Province UnitType Country (Maybe Coast)
 type AdjustUnits = [AdjustUnit]
 
-data GameAction = Orders | DislogedOrders | AdjustUnits
+-- should this be Monadil? Like an log of each action sucess and failure?
+-- this is basically what I wrote last time, but only for a narrow case
+resolveOrders :: Board -> GameState -> Orders -> DislogedState
+resolveOrders (Board graph boardMap) (GameState date supplies units) orders = DislogedState date supplies' units' dislogedUnits'
+    where units' = undefined
+          dislogedUnits' = undefined
+          supplies' = undefined
+
+--Disband
+-- Any using can be disbanded
+--Retreat
+-- Units can retreat to an unoccupied adjacent province
+-- Resolving coast issues?
+resolveDislodgements :: Board -> DislogedState -> DislogedOrders -> GameState
+resolveDislodgements board dislogedState dislodgedOrders = 
+    (\(DislogedState d s u du) -> GameState d s u) $ foldl resolve dislogedState dislodgedOrders
+    where resolve :: DislogedState -> DislogedOrder -> DislogedState
+          resolve (DislogedState date supplies units dislodgedUnits) 
+                  (Disband province) = 
+                      DislogedState date supplies (Map.delete province units) (Map.delete province dislodgedUnits)
+          resolve (DislogedState date supplies units dislodgedUnits) 
+                  (Retreat provinceFrom provinceTo) = 
+                      DislogedState date supplies (Map.insert provinceTo (dislodgedUnits Map.! provinceFrom) units) (Map.delete provinceFrom dislodgedUnits)
+
+--Building
+-- Can only be done if SupplyCenters > Units
+--                  and Placement in HomeProvince
+--                  and Placement is Unoccupied
+--                  and Placement is Controlled
+--                  and if Fleet then Placement not Inland
+--                  and Coast is Specifed (if required)
+--Disbanding
+-- Any unit may be disbanded
+resolveAdjustments :: Board -> GameState -> AdjustUnits -> GameState
+resolveAdjustments board gameState adjustUnits = foldl resolve gameState adjustUnits
+    where resolve :: GameState -> AdjustUnit -> GameState
+          resolve (GameState date supplies units) 
+                  (Loose province) = GameState date supplies (Map.delete province units)
+          resolve (GameState date supplies units) 
+                  (Build province unit country coast) = 
+                      GameState date supplies (Map.insert province (UnitData unit country coast) units)
+
+--Should I have seperate methods that update Date?
 
 -- The state transitions are following
 {-
@@ -84,12 +137,12 @@ data GameAction = Orders | DislogedOrders | AdjustUnits
 6 : StateToDisloged
 8 : DislogedToState(Adjust)
 10 : AdjustState
--}
 
-turn :: GameState -> GameAction -> GameState
-turn (OrderPhase (Fall year) supplies units) (orders) = undefined
-turn (OrderPhase (Spring year) supplies units) (orders) = undefined
-turn (DislodgedPhase date supplies unites dislogedUnits) (dislogedOrders) = undefined
+
+State -> DislogedState
+DislogedState -> State
+AdjustState (done after fall) State -> State
+-}
 
 
 
