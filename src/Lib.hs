@@ -36,8 +36,13 @@ import Data.Maybe
 --      Limit cycle (continuous)
 
 -- STRICTLY UNCHANGING BOARD RELATED (Should we no use record syntax?)
-data Province = A | B | C | D | E | F | G deriving (Eq, Ord, Enum, Show)
-type BoardGraph = Undirected.Graph Province
+data Province = Boh | Bud | Gal | Tri | Tyr | Vie | Cly | Edi | Lvp | Lon | Wal | Yor | Bre | Bur 
+              | Gas | Mar | Par | Pic | Ber | Kie | Mun | Pru | Ruh | Sil | Apu | Nap | Pie | Rom 
+              | Tus | Ven | Fin | Lvn | Mos | Sev | StP | Ukr | War | Ank | Arm | Con | Smy | Syr 
+              | Alb | Bel | Bul | Den | Gre | Hol | Nwy | NAf | Por | Rum | Ser | Spa | Swe | Tun 
+              | Adr | Aeg | Bal | Bar | Bla | Eas | Eng | Bot | GoL | Hel | Ion | Iri | Mid | NAt 
+              | Nth | Nrg | Ska | Tyn | Wes deriving (Eq, Ord, Enum, Show)
+-- type BoardGraph = Undirected.Graph Province
 data Country = England | Germany | Russia | Turkey | Italy | France | Austria | CivilDisorder deriving (Eq, Ord, Enum, Show)
 data ProvinceType = Inland | Water | Coastal deriving (Eq, Ord, Enum, Show) -- how do I handle provinces with two coasts
 type Supply = Bool
@@ -50,7 +55,36 @@ data ProvinceData = ProvinceData {
       , coasts       :: Coasts -- particular adjacency of the coasts
     } deriving (Eq, Show)
 type BoardData = Map.Map Province ProvinceData
-data Board = Board BoardGraph BoardData deriving (Eq, Show)
+-- data Board = Board BoardGraph BoardData deriving (Eq, Show)
+
+graph :: Undirected.Graph Province
+graph = Undirected.edges 
+    [(NAt,Nrg),(NAt,Cly),(NAt,Lvp),(NAt,Iri),(NAt,Mid),(Nrg,Edi),(Nrg,Nth),(Nrg,Nwy),(Nrg,Bar)
+    ,(Cly,Edi),(Cly,Lvp),(Lvp,Edi),(Lvp,Yor),(Lvp,Wal),(Lvp,Iri),(Iri,Wal),(Iri,Eng),(Iri,Mid)
+    ,(Mid,Eng),(Mid,Bre),(Mid,Gas),(Mid,Spa),(Mid,Por),(Mid,Wes),(Mid,NAf),(Bar,StP),(Bar,Nwy)
+    ,(Nwy,Fin),(Nwy,Swe),(Nwy,Ska),(Nwy,Nth),(Nth,Ska),(Nth,Den),(Nth,Hel),(Nth,Hol),(Nth,Bel)
+    ,(Nth,Eng),(Nth,Lon),(Nth,Yor),(Nth,Edi),(Edi,Yor),(Yor,Lon),(Yor,Wal),(Wal,Lon),(Wal,Eng)
+    ,(Eng,Lon),(Eng,Bel),(Eng,Pic),(Eng,Bre),(Bre,Pic),(Bre,Par),(Bre,Gas),(Gas,Par),(Gas,Bur)
+    ,(Gas,Mar),(Gas,Spa),(Spa,Mar),(Spa,GoL),(Spa,Wes),(Spa,Por),(NAf,Wes),(NAf,Tun),(Tun,Wes)
+    ,(Tun,Tyn),(Tun,Ion),(Wes,GoL),(Wes,Tyn),(GoL,Mar),(GoL,Pie),(GoL,Tyn),(Mar,Bur),(Mar,Pie)
+    ,(Bur,Par),(Bur,Pic),(Bur,Bel),(Bur,Ruh),(Bur,Mun),(Pic,Par),(Pic,Bel),(Bel,Hol),(Bel,Ruh)
+    ,(Hol,Hel),(Hol,Kie),(Hol,Ruh),(Hel,Den),(Hel,Kie),(Den,Ska),(Den,Swe),(Den,Bal),(Den,Kie)
+    ,(Swe,Fin),(Swe,Ska),(Swe,Bot),(Swe,Bal),(Bot,Fin),(Bot,StP),(Bot,Lvn),(Bot,Bal),(StP,Fin)
+    ,(StP,Lvn),(StP,Mos),(Mos,Lvn),(Mos,War),(Mos,Ukr),(Mos,Sev),(Lvn,Bal),(Lvn,Pru),(Lvn,War)
+    ,(Bal,Pru),(Bal,Ber),(Bal,Kie),(Kie,Ber),(Kie,Mun),(Kie,Ruh),(Ruh,Mun),(Ber,Pru),(Ber,Sil)
+    ,(Ber,Mun),(Pru,War),(Pru,Sil),(Mun,Sil),(Mun,Boh),(Mun,Tyr),(Pie,Ven),(Pie,Tyr),(Pie,Tus)
+    ,(War,Ukr),(War,Gal),(War,Sil),(Ukr,Sev),(Ukr,Rum),(Ukr,Gal),(Sev,Arm),(Sev,Bla),(Sev,Rum)
+    ,(Boh,Sil),(Boh,Gal),(Boh,Vie),(Boh,Tyr),(Tyr,Vie),(Tyr,Tri),(Tyr,Ven),(Ven,Tri),(Ven,Adr)
+    ,(Ven,Tus),(Tus,Rom),(Tus,Tyn),(Tyn,Rom),(Tyn,Nap),(Tyn,Ion),(Rom,Apu),(Rom,Nap),(Vie,Gal)
+    ,(Vie,Bud),(Vie,Tri),(Tri,Bud),(Tri,Ser),(Tri,Alb),(Tri,Adr),(Adr,Alb),(Adr,Ion),(Adr,Apu)
+    ,(Apu,Nap),(Nap,Ion),(Gal,Rum),(Gal,Bud),(Bud,Rum),(Bud,Ser),(Ion,Alb),(Ion,Gre),(Ion,Aeg)
+    ,(Ion,Eas),(Alb,Ser),(Alb,Gre),(Ser,Rum),(Ser,Bul),(Ser,Gre),(Rum,Bla),(Rum,Bul),(Bul,Bla)
+    ,(Bul,Con),(Bul,Aeg),(Bul,Gre),(Gre,Aeg),(Aeg,Con),(Aeg,Smy),(Aeg,Eas),(Bla,Arm),(Bla,Ank)
+    ,(Bla,Con),(Con,Ank),(Con,Smy),(Ank,Arm),(Ank,Smy),(Arm,Syr),(Arm,Smy),(Smy,Syr),(Smy,Eas)
+    ,(Eas,Syr)]
+
+dmap :: Map.Map Province ProvinceData
+dmap = undefined
 
 -- STATE DATA
 data UnitType = Army | Fleet deriving (Eq, Ord, Enum, Show)
@@ -81,10 +115,23 @@ type AdjustUnits = [AdjustUnit]
 -- should this be Monadil? Like an log of each action sucess and failure?
 -- this is basically what I wrote last time, but only for a narrow case
 resolveOrders :: Board -> GameState -> Orders -> DislogedState
-resolveOrders (Board graph boardMap) (GameState date supplies units) orders = DislogedState date supplies' units' dislogedUnits'
-    where units' = undefined
-          dislogedUnits' = undefined
-          supplies' = undefined
+resolveOrders board@(Board graph boardMap) (GameState date supplies units) orders = DislogedState date supplies' units' dislogedUnits'
+    where units' = foldl resolve units orders
+          dislogedUnits' = Map.empty
+          supplies' = supplies
+          resolve :: Units -> Order -> Units
+          resolve units (Move provinceFrom provinceTo) = Map.insert provinceTo (units Map.! provinceFrom) (Map.delete provinceFrom units)
+          resolve units _ = units
+
+a1 :: Board -> Units -> Orders -> Units --(Units, DislogedUnits)?
+a1 = undefined 
+
+a2 :: Board -> Units -> Orders -> DislodgedUnits
+a2 = undefined 
+
+a3 :: Board -> Supplies -> Units -> Supplies
+a3 = undefined 
+
 
 --Disband
 -- Any using can be disbanded
@@ -161,7 +208,8 @@ findCycles m ns = Set.fromList $ map (findCycle m) ns
 
 
 movesDiagram12 :: Map.Map Province Province
-movesDiagram12 = Map.fromList [(A,C),(B,E),(C,D),(E,D),(G,C),(F,G)]
+movesDiagram12 = undefined --Map.fromList [(A,C),(B,E),(C,D),(E,D),(G,C),(F,G)]
 
--- >>> 7 * 93
--- 651
+-- >>> 7 * 94
+-- 658
+
