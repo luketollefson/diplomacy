@@ -3,37 +3,14 @@ module Lib
     ) where
 
 import qualified Algebra.Graph.Undirected as Undirected
+import Algebra.Graph.Undirected ( Graph )
 import qualified Data.Map as Map
+import Data.Map ( Map )
 import qualified Data.Set as Set
+import Data.Set ( Set )
 import Data.List ( find )
 import Data.Maybe
 
-
--- New version: started 23 May 2020
--- Goals
---      Simplify, especailly the following
---          terminus finding (if possible), prehaps there is a fixpoint/endomap libray or math
---          nextTurn, can logic be pulled out to be resued on top level?
---          In nextTurn, the main part, can 84-108 be massivly simplified
---      Renaming, give better and more descriptive names (as well as removing temporary names)
---      Use data type more, see if things belong to typeclasses I might not do this right now, I don't fully know what the data for validation, water etc.
---      Comment the reasoning
---      Make imported things easier to use
--- Non-Goals
---      Validation, I still don't know enough about the problem
--- Style
---      don't get too wide or indented
---      Use Transparent vs terse code
---      Don't abuse abstractions
---      Commits describe changes
---  Math stuff
---      Fixed point (discrete fixed point)
---      Endomap
---      Invariant Promising!
---      Cycles and fixed points
---      Periodic point
---      Limit set (continous)
---      Limit cycle (continuous)
 
 -- STRICTLY UNCHANGING BOARD RELATED (Should we no use record syntax?)
 data Province = Boh | Bud | Gal | Tri | Tyr | Vie | Cly | Edi | Lvp | Lon | Wal | Yor | Bre | Bur 
@@ -43,21 +20,19 @@ data Province = Boh | Bud | Gal | Tri | Tyr | Vie | Cly | Edi | Lvp | Lon | Wal 
               | Adr | Aeg | Bal | Bar | Bla | Eas | Eng | Bot | GoL | Hel | Ion | Iri | Mid | NAt 
               | Nth | Nrg | Ska | Tyn | Wes | StPNC | StPSC | SpaNC | SpaSC | BulEC | BulSC
               deriving (Eq, Ord, Enum, Show)
--- type BoardGraph = Undirected.Graph Province
+type BoardGraph = Graph Province
 data Country = England | Germany | Russia | Turkey | Italy | France | Austria | CivilDisorder deriving (Eq, Ord, Enum, Show)
-data ProvinceType = Inland | Water | Coastal deriving (Eq, Ord, Enum, Show) -- how do I handle provinces with two coasts
+data ProvinceType = Inland | Water | Coastal deriving (Eq, Ord, Enum, Show)
 type Supply = Bool
--- data IdentifiedCoasts = Coast1 | Coast2 deriving (Eq, Ord, Enum, Show)
 data ProvinceData = ProvinceData {
-        provinceType :: ProvinceType
-      , supply       :: Supply
-      , homeCountry  :: Maybe Country -- country that the province is home of
-    --   , coasts       :: Coasts -- particular adjacency of the coasts
+        provinceType :: ProvinceType    -- What type of units go there
+      , supply       :: Supply          -- If supply center is present
+      , homeCountry  :: Maybe Country   -- What the home country of the supply center is
     } deriving (Eq, Show)
-type BoardData = Map.Map Province ProvinceData
+type BoardData = Map Province ProvinceData
 -- data Board = Board BoardGraph BoardData deriving (Eq, Show)
 
-graph :: Undirected.Graph Province
+graph :: BoardGraph
 graph = Undirected.edges 
     [(NAt,Nrg),(NAt,Cly),(NAt,Lvp),(NAt,Iri),(NAt,Mid),(Nrg,Edi),(Nrg,Nth),(Nrg,Nwy),(Nrg,Bar)
     ,(Cly,Edi),(Cly,Lvp),(Lvp,Edi),(Lvp,Yor),(Lvp,Wal),(Lvp,Iri),(Iri,Wal),(Iri,Eng),(Iri,Mid)
@@ -85,6 +60,7 @@ graph = Undirected.edges
     ,(SpaSC,Mid),(SpaSC,Por),(StPNC,Bar),(StPNC,Nwy),(StPSC,Fin),(StPSC,Bot),(StPSC,Lvn)
     ,(BulEC,Rum),(BulEC,Bla),(BulEC,Con),(BulSC,Con),(BulSC,Aeg),(BulSC,Gre)]
 
+converge :: Province -> Province
 converge StPNC = StP
 converge StPSC = StP
 converge SpaNC = Spa
@@ -93,23 +69,104 @@ converge BulEC = Bul
 converge BulSC = Bul
 converge p     = p
 
--- dmap :: BoardData
--- dmap = Map.fromList [(Boh, ProvinceData Inland True Nothing Map.empty)
---                     ,(Bud, ProvinceData Inland True Nothing Map.empty)
---                     ,(Gal, ProvinceData Inland True Nothing Map.empty)
---                     ,(Tri, ProvinceData Inland True Nothing Map.empty)]
+boardData :: BoardData
+boardData = Map.fromList [ (Boh, ProvinceData Inland False Nothing)
+                    , (Bud, ProvinceData Inland True  (Just Austria))
+                    , (Gal, ProvinceData Inland False Nothing)
+                    , (Tri, ProvinceData Coastal True (Just Austria))
+                    , (Tyr, ProvinceData Inland False Nothing)
+                    , (Vie, ProvinceData Inland True (Just Austria))
+                    , (Cly, ProvinceData Coastal False Nothing)
+                    , (Edi, ProvinceData Coastal True (Just England))
+                    , (Lvp, ProvinceData Coastal True (Just England))
+                    , (Lon, ProvinceData Coastal True (Just England))
+                    , (Wal, ProvinceData Coastal False Nothing)
+                    , (Yor, ProvinceData Coastal False Nothing)
+                    , (Bre, ProvinceData Coastal True (Just France))
+                    , (Bur, ProvinceData Inland False Nothing)
+                    , (Gas, ProvinceData Coastal False Nothing)
+                    , (Mar, ProvinceData Coastal True (Just France))
+                    , (Par, ProvinceData Inland True (Just France))
+                    , (Pic, ProvinceData Coastal False Nothing)
+                    , (Ber, ProvinceData Coastal True (Just Germany))
+                    , (Kie, ProvinceData Coastal True (Just Germany))
+                    , (Mun, ProvinceData Inland True (Just Germany))
+                    , (Pru, ProvinceData Coastal False Nothing)
+                    , (Ruh, ProvinceData Inland False Nothing)
+                    , (Sil, ProvinceData Inland False Nothing)
+                    , (Apu, ProvinceData Coastal False Nothing)
+                    , (Nap, ProvinceData Coastal True (Just Italy))
+                    , (Pie, ProvinceData Coastal False Nothing)
+                    , (Rom, ProvinceData Coastal True (Just Italy))
+                    , (Tus, ProvinceData Coastal False Nothing)
+                    , (Ven, ProvinceData Coastal True (Just Italy))
+                    , (Fin, ProvinceData Coastal False Nothing)
+                    , (Lvn, ProvinceData Coastal False Nothing)
+                    , (Mos, ProvinceData Inland True (Just Russia))
+                    , (Sev, ProvinceData Coastal True (Just Russia))
+                    , (StP, ProvinceData Inland True (Just Russia))
+                    , (StPNC, ProvinceData Coastal False (Just Russia))
+                    , (StPSC, ProvinceData Coastal False (Just Russia))
+                    , (Ukr, ProvinceData Inland False Nothing)
+                    , (War, ProvinceData Inland True (Just Russia))
+                    , (Ank, ProvinceData Coastal True (Just Turkey))
+                    , (Arm, ProvinceData Coastal False Nothing)
+                    , (Con, ProvinceData Coastal True (Just Turkey))
+                    , (Smy, ProvinceData Coastal True (Just Turkey))
+                    , (Syr, ProvinceData Coastal False Nothing)
+                    , (Alb, ProvinceData Coastal False Nothing)
+                    , (Bel, ProvinceData Coastal True Nothing)
+                    , (Bul, ProvinceData Inland True Nothing)
+                    , (BulEC, ProvinceData Coastal False Nothing)
+                    , (BulSC, ProvinceData Coastal False Nothing)
+                    , (Den, ProvinceData Coastal True Nothing)
+                    , (Gre, ProvinceData Coastal True Nothing)
+                    , (Hol, ProvinceData Coastal True Nothing)
+                    , (Nwy, ProvinceData Coastal True Nothing)
+                    , (NAf, ProvinceData Coastal False Nothing)
+                    , (Por, ProvinceData Coastal True Nothing)
+                    , (Rum, ProvinceData Coastal True Nothing)
+                    , (Ser, ProvinceData Inland True Nothing)
+                    , (Spa, ProvinceData Inland True Nothing)
+                    , (SpaNC, ProvinceData Coastal False Nothing)
+                    , (SpaSC, ProvinceData Coastal False Nothing)
+                    , (Swe, ProvinceData Coastal True Nothing)
+                    , (Tun, ProvinceData Coastal True Nothing)
+                    , (Adr, ProvinceData Water False Nothing)
+                    , (Aeg, ProvinceData Water False Nothing)
+                    , (Bal, ProvinceData Water False Nothing)
+                    , (Bar, ProvinceData Water False Nothing)
+                    , (Bla, ProvinceData Water False Nothing)
+                    , (Eas, ProvinceData Water False Nothing)
+                    , (Eng, ProvinceData Water False Nothing)
+                    , (Bot, ProvinceData Water False Nothing)
+                    , (GoL, ProvinceData Water False Nothing)
+                    , (Hel, ProvinceData Water False Nothing)
+                    , (Ion, ProvinceData Water False Nothing)
+                    , (Iri, ProvinceData Water False Nothing)
+                    , (Mid, ProvinceData Water False Nothing)
+                    , (NAt, ProvinceData Water False Nothing)
+                    , (Nth, ProvinceData Water False Nothing)
+                    , (Nrg, ProvinceData Water False Nothing)
+                    , (Ska, ProvinceData Water False Nothing)
+                    , (Tyn, ProvinceData Water False Nothing)
+                    , (Wes, ProvinceData Water False Nothing)
+                    ]
+
+
+
+
 
 -- STATE DATA
 data UnitType = Army | Fleet deriving (Eq, Ord, Enum, Show)
 data UnitData = UnitData {
         unitType :: UnitType
       , country :: Country
-    --   , coast :: Maybe Coast
     } deriving (Eq, Show)
-type Units = Map.Map Province UnitData
+type Units = Map Province UnitData
 type DislodgedUnits = Units
 data Date = Spring Int | Fall Int  deriving (Eq, Ord, Show)
-type Supplies = Map.Map Province Country
+type Supplies = Map Province Country
 data GameState = GameState Date Supplies Units deriving (Eq, Show)
 data DislogedState = DislogedState Date Supplies Units DislodgedUnits deriving (Eq, Show)
 
@@ -122,19 +179,19 @@ data DislogedOrder = Disband Province | Retreat Province Province
 type DislogedOrders = [DislogedOrder]
 
 -- ADJUST UNITS (DISBAND AND BUILD) DONE AFTER FALL TURN DislodgedPhase
--- data AdjustUnit = Loose Province | Build Province UnitType Country (Maybe Coast)
--- type AdjustUnits = [AdjustUnit]
+data AdjustUnit = Loose Province | Build Province UnitType Country
+type AdjustUnits = [AdjustUnit]
 
 -- should this be Monadil? Like an log of each action sucess and failure?
 -- this is basically what I wrote last time, but only for a narrow case
--- resolveOrders :: Board -> GameState -> Orders -> DislogedState
--- resolveOrders board@(Board graph boardMap) (GameState date supplies units) orders = DislogedState date supplies' units' dislogedUnits'
---     where units' = foldl resolve units orders
---           dislogedUnits' = Map.empty
---           supplies' = supplies
---           resolve :: Units -> Order -> Units
---           resolve units (Move provinceFrom provinceTo) = Map.insert provinceTo (units Map.! provinceFrom) (Map.delete provinceFrom units)
---           resolve units _ = units
+resolveOrders :: GameState -> Orders -> DislogedState
+resolveOrders (GameState date supplies units) orders = DislogedState date supplies' units' dislogedUnits'
+    where units' = foldl resolve units orders
+          dislogedUnits' = Map.empty
+          supplies' = supplies
+          resolve :: Units -> Order -> Units
+          resolve units (Move provinceFrom provinceTo) = Map.insert provinceTo (units Map.! provinceFrom) (Map.delete provinceFrom units)
+          resolve units _ = units
 
 -- a1 :: Board -> Units -> Orders -> Units --(Units, DislogedUnits)?
 -- a1 = undefined 
@@ -151,16 +208,16 @@ type DislogedOrders = [DislogedOrder]
 --Retreat
 -- Units can retreat to an unoccupied adjacent province
 -- Resolving coast issues?
--- resolveDislodgements :: Board -> DislogedState -> DislogedOrders -> GameState
--- resolveDislodgements board dislogedState dislodgedOrders = 
---     (\(DislogedState d s u du) -> GameState d s u) $ foldl resolve dislogedState dislodgedOrders
---     where resolve :: DislogedState -> DislogedOrder -> DislogedState
---           resolve (DislogedState date supplies units dislodgedUnits) 
---                   (Disband province) = 
---                       DislogedState date supplies (Map.delete province units) (Map.delete province dislodgedUnits)
---           resolve (DislogedState date supplies units dislodgedUnits) 
---                   (Retreat provinceFrom provinceTo) = 
---                       DislogedState date supplies (Map.insert provinceTo (dislodgedUnits Map.! provinceFrom) units) (Map.delete provinceFrom dislodgedUnits)
+resolveDislodgements :: DislogedState -> DislogedOrders -> GameState
+resolveDislodgements dislogedState dislodgedOrders = 
+    (\(DislogedState d s u du) -> GameState d s u) $ foldl resolve dislogedState dislodgedOrders
+    where resolve :: DislogedState -> DislogedOrder -> DislogedState
+          resolve (DislogedState date supplies units dislodgedUnits) 
+                  (Disband province) = 
+                      DislogedState date supplies (Map.delete province units) (Map.delete province dislodgedUnits)
+          resolve (DislogedState date supplies units dislodgedUnits) 
+                  (Retreat provinceFrom provinceTo) = 
+                      DislogedState date supplies (Map.insert provinceTo (dislodgedUnits Map.! provinceFrom) units) (Map.delete provinceFrom dislodgedUnits)
 
 --Building
 -- Can only be done if SupplyCenters > Units
@@ -171,14 +228,14 @@ type DislogedOrders = [DislogedOrder]
 --                  and Coast is Specifed (if required)
 --Disbanding
 -- Any unit may be disbanded
--- resolveAdjustments :: Board -> GameState -> AdjustUnits -> GameState
--- resolveAdjustments board gameState adjustUnits = foldl resolve gameState adjustUnits
---     where resolve :: GameState -> AdjustUnit -> GameState
---           resolve (GameState date supplies units) 
---                   (Loose province) = GameState date supplies (Map.delete province units)
---           resolve (GameState date supplies units) 
---                   (Build province unit country coast) = 
---                       GameState date supplies (Map.insert province (UnitData unit country coast) units)
+resolveAdjustments :: GameState -> AdjustUnits -> GameState
+resolveAdjustments gameState adjustUnits = foldl resolve gameState adjustUnits
+    where resolve :: GameState -> AdjustUnit -> GameState
+          resolve (GameState date supplies units) 
+                  (Loose province) = GameState date supplies (Map.delete province units)
+          resolve (GameState date supplies units) 
+                  (Build province unit country) = 
+                      GameState date supplies (Map.insert province (UnitData unit country) units)
 
 --Should I have seperate methods that update Date?
 
@@ -209,18 +266,18 @@ AdjustState (done after fall) State -> State
 -- type Orders = []
 
 -- rewrite in monad style, State or Writer?
-findCycle :: (Eq a, Ord a) => (a -> a) -> a -> Set.Set a
+findCycle :: (Eq a, Ord a) => (a -> a) -> a -> Set a
 findCycle m n = Set.fromList 
     $ (\(s, ns) -> s : takeWhile (/= s) ns) 
     $ fromJust 
     $ find (\(s, ns) -> s `elem` ns) 
     $ iterate (\(s, ns) -> (m s, s : ns)) (n, [])
 
-findCycles :: (Eq a, Ord a) => (a -> a) -> [a] -> Set.Set (Set.Set a)
+findCycles :: (Eq a, Ord a) => (a -> a) -> [a] -> Set (Set a)
 findCycles m ns = Set.fromList $ map (findCycle m) ns
 
 
-movesDiagram12 :: Map.Map Province Province
+movesDiagram12 :: Map Province Province
 movesDiagram12 = undefined --Map.fromList [(A,C),(B,E),(C,D),(E,D),(G,C),(F,G)]
 
 -- >>> 7 * 94
