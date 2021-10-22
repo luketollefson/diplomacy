@@ -193,13 +193,59 @@ resolveOrders (GameState date supplies units) orders = DislogedState date suppli
           resolve units (Move provinceFrom provinceTo) = Map.insert provinceTo (units Map.! provinceFrom) (Map.delete provinceFrom units)
           resolve units _ = units
 
--- a1 :: Board -> Units -> Orders -> Units --(Units, DislogedUnits)?
+
+data OrderB = OrderB Order Bool
+type OrderBs = [OrderB]
+
+addOrder :: OrderBs -> Order -> OrderBs
+addOrder [] o  = [OrderB o True]
+addOrder obs o = OrderB o suc : fmap change obs
+    where suc = case o of
+                    Hold p -> undefined -- success if >1 sucessful move into p
+                                        -- need to know powerlevel?
+                    Move p p' -> undefined
+                    Support p p' p'' -> undefined
+                    Convoy p p' p'' -> undefined
+          change = undefined
+
+-- Only Holds and Moves can be supported.
+-- Supports are cut by moves, no matter how powerful. Except if the unit where support being given is dislodged
+data OrderI = HoldI Int Province | MoveI Int Province Province
+type OrderIs = [OrderI]
+interOrders :: Orders -> OrderIs
+interOrders os = undefined
+
+interOrders' :: OrderIs -> Order -> OrderIs
+interOrders' ois (Hold p) = addInterOrder ois (HoldI 1 p)
+interOrders' ois (Move p p') = addInterOrder ois (MoveI 1 p p')
+interOrders' ois (Support p p' p'') = if p' == p'' then addInterOrder ois (HoldI 1 p') 
+                                                   else addInterOrder ois (MoveI 1 p' p'')
+
+
+-- Add a new OrderI to the list of orders
+addInterOrder :: OrderIs -> OrderI -> OrderIs
+addInterOrder [] o = [o]
+addInterOrder l@((HoldI n p) : ois) e@(HoldI n' p') = if p == p' then (HoldI (n+n') p : ois)
+                                                                 else l ++ addInterOrder ois e
+addInterOrder l@((MoveI n p1 p2) : ois) e@(MoveI n' p1' p2') = if p1 == p1' && p2 == p2' then (MoveI (n+n') p1 p2 : ois)
+                                                                                         else l ++ addInterOrder ois e
+
+-- In the context of these orders, does this order a sucess or failure?
+-- moveSuccess :: Orders -> Order -> Bool
+-- moveSuccess os (Hold p) = undefined
+-- moveSuccess os (Move p p') = undefined
+-- moveSuccess os (Support p p' p'') = undefined
+-- moveSuccess os (Convoy p p' p'') = undefined
+
+
+
+-- a1 :: Units -> Orders -> Units --(Units, DislogedUnits)?
 -- a1 = undefined 
 
--- a2 :: Board -> Units -> Orders -> DislodgedUnits
+-- a2 :: Units -> Orders -> DislodgedUnits
 -- a2 = undefined 
 
--- a3 :: Board -> Supplies -> Units -> Supplies
+-- a3 :: Supplies -> Units -> Supplies
 -- a3 = undefined 
 
 
